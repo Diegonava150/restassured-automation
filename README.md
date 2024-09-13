@@ -4,7 +4,7 @@ This project contains test cases implemented with RestAssured for testing an API
 
 ## Requirements
 
-- Java 21
+- Java 17
 - Maven
 - JUnit
 - Cucumber
