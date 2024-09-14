@@ -1,0 +1,10 @@
+{
+  "name": "Premium Coffee",
+  "trademark": "Superior Brand",
+  "stock": 150.5,
+  "price": 20.99,
+  "description": "A high-quality coffee with a rich flavor.",
+  "id": "res123",
+  "tags": "coffee,beverage",
+  "active": true
+}

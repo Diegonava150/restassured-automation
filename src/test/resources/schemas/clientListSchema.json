@@ -1,0 +1,37 @@
+{
+  "type": "array",
+  "items": {
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "lastName": {
+        "type": "string"
+      },
+      "country": {
+        "type": "string"
+      },
+      "city": {
+        "type": "string"
+      },
+      "phone": {
+        "type": "string"
+      },
+      "email": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "name",
+      "lastName",
+      "country",
+      "city",
+      "phone",
+      "email",
+      "id"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "type": "array",
+  "items": {
+    "properties": {
+      "name": {
+        "type": "string"
+      },
+      "trademark": {
+        "type": "string"
+      },
+      "stock": {
+        "type": "number"
+      },
+      "price": {
+        "type": "number"
+      },
+      "description": {
+        "type": "string"
+      },
+      "id": {
+        "type": "string"
+      },
+      "tags": {
+        "type": "string"
+      },
+      "active": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name",
+      "trademark",
+      "stock",
+      "price",
+      "description",
+      "id",
+      "tags",
+      "active"
+    ]
+  }
+}
