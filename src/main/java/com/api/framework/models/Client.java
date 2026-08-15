@@ -6,75 +6,26 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Represents a client with personal and contact information.
- * <p>
- * This class uses Lombok annotations for boilerplate code reduction.
- * </p>
+ * A client row.
  *
- * <ul>
- *   <li>{@link Builder} - Provides a builder pattern for the class.</li>
- *   <li>{@link Data} - Generates getters, setters, toString, equals, and hashcode methods.</li>
- *   <li>{@link NoArgsConstructor} - Generates a no-argument constructor.</li>
- *   <li>{@link AllArgsConstructor} - Generates an all-arguments constructor.</li>
- * </ul>
+ * <p>{@code id} is an {@link Integer}, not a String. It is a Postgres {@code serial} and
+ * PostgREST serialises it as a JSON number — the old hosted mock returned {@code "id": "7"}
+ * as a string, and the models and JSON schemas were shaped around that. Anything asserting on
+ * a string id was asserting on the mock's quirk rather than on an API contract.
  *
- * <pre>
- * Example usage:
- * {@code
- * Client client = Client.builder()
- *                       .name("John")
- *                       .lastName("Doe")
- *                       .country("USA")
- *                       .city("New York")
- *                       .id("12345")
- *                       .phone("555-1234")
- *                       .email("john.doe@example.com")
- *                       .build();
- * }
- * </pre>
- *
- * @see lombok.Builder
- * @see lombok.Data
- * @see lombok.NoArgsConstructor
- * @see lombok.AllArgsConstructor
+ * <p>Left null when creating: the database assigns it.
  */
 @Builder
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Client {
-    /**
-     * The first name of the client.
-     */
+
+    private Integer id;
     private String name;
-
-    /**
-     * The last name of the client.
-     */
     private String lastName;
-
-    /**
-     * The country of residence of the client.
-     */
     private String country;
-
-    /**
-     * The city of residence of the client.
-     */
     private String city;
-
-    /**
-     * The unique identifier of the client.
-     */
-    private String id;
-
-    /**
-     * The phone number of the client.
-     */
     private String phone;
-
-    /**
-     * The email address of the client.
-     */
     private String email;
 }

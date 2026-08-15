@@ -1,176 +1,166 @@
 package com.testing.framework.stepDefinitions;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.api.framework.models.Client;
 import com.api.framework.requests.ClientRequest;
+import com.testing.framework.support.TestContext;
 import io.cucumber.datatable.DataTable;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import io.restassured.response.Response;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.junit.Assert;
-
 import java.util.List;
 import java.util.Map;
 
-/**
- * ClientSteps class contains step definitions for Cucumber scenarios related to Client operations.
- * <p>
- * This class uses {@link ClientRequest} to perform API requests and validate responses.
- * </p>
- */
+/** Steps for {@code /clients}. */
 public class ClientSteps {
-    private static final Logger logger = LogManager.getLogger(ClientSteps.class);
 
-    private final ClientRequest clientRequest = new ClientRequest();
+    private final ClientRequest clients = new ClientRequest();
+    private final TestContext context;
 
-    private Response response;
-    private Client client;
+    private Client pendingClient;
 
-    @Given("there are at least 10 registered clients in the system")
-    public void thereAreAtLeast10RegisteredClientsInTheSystem() {
-        response = clientRequest.getClients();
-        logger.info(response.jsonPath().prettify());
-        Assert.assertEquals(200, response.statusCode());
+    public ClientSteps(TestContext context) {
+        this.context = context;
+    }
 
-        List<Client> clientList = clientRequest.getClientsEntity(response);
-        while (clientList.size() < 10) {
-            response = clientRequest.createDefaultClient();
-            logger.info(response.statusCode());
-            Assert.assertEquals(201, response.statusCode());
-            clientList = clientRequest.getClientsEntity(clientRequest.getClients());
-        }
+    // ------------------------------------------------------------------ given
+
+    /**
+     * A precondition, asserted rather than created.
+     *
+     * <p>The old version of this step created clients in a loop until the count was high
+     * enough — against a shared mock, which is how that mock filled to its row cap. The
+     * container is seeded from {@code init.sql} and starts in a known state, so a
+     * precondition can simply be checked. A step named "there are at least N" should not be
+     * the thing that makes it so.
+     */
+    @Given("there are at least {int} registered clients")
+    public void thereAreAtLeastRegisteredClients(int minimum) {
+        Response response = clients.getClients();
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(clients.clientList(response))
+                .as("seeded clients from db/init.sql")
+                .hasSizeGreaterThanOrEqualTo(minimum);
+        context.setResponse(response);
     }
 
     @Given("I have a client with the following details:")
-    public void iHaveAClientWithTheFollowingDetails(DataTable clientData) {
-        Map<String, String> clientDataMap = clientData.asMaps().get(0);
-        client = Client.builder()
-                .name(clientDataMap.get("Name"))
-                .lastName(clientDataMap.get("LastName"))
-                .country(clientDataMap.get("Country"))
-                .city(clientDataMap.get("City"))
-                .id(clientDataMap.get("Id"))
-                .phone(clientDataMap.get("Phone"))
-                .email(clientDataMap.get("Email"))
+    public void iHaveAClientWithTheFollowingDetails(DataTable table) {
+        Map<String, String> row = table.asMaps().get(0);
+        pendingClient = Client.builder()
+                .name(row.get("name"))
+                .lastName(row.get("lastName"))
+                .country(row.get("country"))
+                .city(row.get("city"))
+                .phone(row.get("phone"))
+                .email(row.get("email"))
                 .build();
-        logger.info("Client mapped: " + client);
     }
 
-    @When("I retrieve the details of the client with id {string}")
-    public void sendGETRequestId(String clientId) {
-        response = clientRequest.getClient(clientId);
-        logger.info(response.jsonPath().prettify());
-        logger.info("The status code is: " + response.statusCode());
+    // ------------------------------------------------------------------- when
+
+    @When("I request the list of clients")
+    public void iRequestTheListOfClients() {
+        context.setResponse(clients.getClients());
     }
 
-    @When("I retrieve the details of the client with name {string}")
-    public void sendGETRequest(String clientName) {
-        Response clientsResponse = clientRequest.getClients();
-
-        if (clientsResponse.getStatusCode() != 200) {
-            logger.error("Failed to fetch clients list");
-            Assert.fail("Failed to fetch clients list with status code: " + clientsResponse.getStatusCode());
-            return;
-        }
-
-        List<Client> clients = clientsResponse.jsonPath().getList("", Client.class);
-        Client matchedClient = clients.stream()
-                .filter(client -> clientName.equalsIgnoreCase(client.getName()))
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("Client with name " + clientName + " not found"));
-
-        String clientId = matchedClient.getId();
-        response = clientRequest.getClient(clientId);
-
-        logger.info("Response Body: " + response.jsonPath().prettify());
-        logger.info("The status code is: " + response.statusCode());
-
-        if (response.getStatusCode() == 200) {
-            this.client = response.as(Client.class);
-            logger.info("Client details retrieved: " + this.client);
-        } else {
-            logger.error("Failed to fetch details for client with ID: " + clientId);
-        }
+    @When("I request the client with id {string}")
+    public void iRequestTheClientWithId(String id) {
+        context.setResponse(clients.getClient(id));
     }
 
-    @When("I save her current phone number")
-    public void iSaveHerCurrentPhoneNumber() {
-        String originalPhoneNumber = client.getPhone();
+    @When("I create the client")
+    public void iCreateTheClient() {
+        context.setResponse(clients.createClient(pendingClient));
     }
 
-    @When("I send a PUT request to update the client with ID {string}")
-    public void iSendAPUTRequestToUpdateTheClientWithID(String clientId, String requestBody) {
-        client = clientRequest.getClientEntity(requestBody);
-        response = clientRequest.updateClient(client, clientId);
+    @When("I create a client with the body:")
+    public void iCreateAClientWithTheBody(String rawJson) {
+        context.setResponse(clients.createClientRaw(rawJson));
     }
 
-    @Then("the client should have a status code of {int}")
-    public void theResponseShouldHaveAStatusCodeOf(int statusCode) {
-        Assert.assertEquals(statusCode, response.statusCode());
+    @When("I update the client with id {string} with the body:")
+    public void iUpdateTheClientWithIdWithTheBody(String id, String rawJson) {
+        context.setResponse(clients.updateClient(rawJson, id));
     }
 
-    @Then("the client should have the following details:")
-    public void theResponseShouldHaveTheFollowingDetails(DataTable expectedData) {
-        client = clientRequest.getClientEntity(response);
-        Map<String, String> expectedDataMap = expectedData.asMaps().get(0);
-
-        Assert.assertEquals(expectedDataMap.get("Name"), client.getName());
-        Assert.assertEquals(expectedDataMap.get("LastName"), client.getLastName());
-        Assert.assertEquals(expectedDataMap.get("Country"), client.getCountry());
-        Assert.assertEquals(expectedDataMap.get("City"), client.getCity());
-        Assert.assertEquals(expectedDataMap.get("Id"), client.getId());
-        Assert.assertEquals(expectedDataMap.get("Phone"), client.getPhone());
-        Assert.assertEquals(expectedDataMap.get("Email"), client.getEmail());
+    @When("I delete the client with id {string}")
+    public void iDeleteTheClientWithId(String id) {
+        context.setResponse(clients.deleteClient(id));
     }
 
-    @Then("validates the response with client JSON schema")
-    public void userValidatesResponseWithClientJSONSchema() {
-        String path = "schemas/clientSchema.json";
-        Assert.assertTrue(clientRequest.validateSchema(response, path));
-        logger.info("Successfully validated schema for Client object");
+    // ------------------------------------------------------------------- then
+
+    @Then("the response status is {int}")
+    public void theResponseStatusIs(int expected) {
+        assertThat(context.getResponse().statusCode())
+                .as("response body was: %s", context.getResponse().asString())
+                .isEqualTo(expected);
     }
 
-    @Then("I delete all the registered clients")
-    public void iDeleteAllTheRegisteredClients() {
-        response = clientRequest.getClients();
-        List<Client> clients = clientRequest.getClientsEntity(response);
-
-        for (Client cli : clients) {
-            response = clientRequest.deleteClient(cli.getId());
-            Assert.assertEquals(200, response.statusCode());
-            logger.info("Deleted client with ID: " + cli.getId());
-        }
+    /**
+     * Asserts the PostgREST/Postgres error code, not just the status.
+     *
+     * <p>A {@code 400} tells you the request was rejected; {@code 23514} tells you a CHECK
+     * constraint rejected it. Without this, a test asserting 400 passes just as happily when
+     * the payload is malformed for an entirely different reason than the one under test.
+     */
+    @Then("the error code is {string}")
+    public void theErrorCodeIs(String expectedCode) {
+        assertThat(context.getResponse().jsonPath().getString("code"))
+                .as("error body was: %s", context.getResponse().asString())
+                .isEqualTo(expectedCode);
     }
 
-
-    @When("I send a GET request to view all the clients")
-    public void iSendAGETRequestToViewAllTheClient() {
-        response = clientRequest.getClients();
+    @Then("the response contains {int} clients")
+    public void theResponseContainsClients(int expected) {
+        assertThat(clients.clientList(context.getResponse())).hasSize(expected);
     }
 
-    @When("I send a POST request to create a client")
-    public void iSendAPOSTRequestToCreateAClient() {
-        response = clientRequest.createClient(client);
+    @Then("the response is an empty list")
+    public void theResponseIsAnEmptyList() {
+        assertThat(context.getResponse().jsonPath().getList("")).isEmpty();
     }
 
-    @When("I send a DELETE request to delete the client with ID {string}")
-    public void iSendADELETERequestToDeleteTheClientWithID(String clientId) {
-        response = clientRequest.deleteClient(clientId);
+    @Then("the client in the response has:")
+    public void theClientInTheResponseHas(DataTable table) {
+        Client actual = clients.firstClient(context.getResponse());
+        Map<String, String> expected = table.asMaps().get(0);
+
+        assertThat(actual.getName()).isEqualTo(expected.get("name"));
+        assertThat(actual.getLastName()).isEqualTo(expected.get("lastName"));
+        assertThat(actual.getCountry()).isEqualTo(expected.get("country"));
+        assertThat(actual.getCity()).isEqualTo(expected.get("city"));
+        assertThat(actual.getPhone()).isEqualTo(expected.get("phone"));
+        assertThat(actual.getEmail()).isEqualTo(expected.get("email"));
     }
 
-    @Then("the response should include the details of the created client")
-    public void theResponseShouldIncludeTheDetailsOfTheCreatedClient() {
-        Client newClient = clientRequest.getClientEntity(response);
-        newClient.setId(null);
-        Assert.assertEquals(client, newClient);
+    /**
+     * The server assigned an id. Worth its own step: it is the difference between "the API
+     * echoed my payload back" and "the API stored a row".
+     */
+    @Then("the created client has a server-assigned id")
+    public void theCreatedClientHasAServerAssignedId() {
+        assertThat(clients.firstClient(context.getResponse()).getId()).isNotNull().isPositive();
     }
 
-    @Then("validates the response with client list JSON schema")
-    public void userValidatesResponseWithClientListJSONSchema() {
-        String path = "schemas/clientListSchema.json";
-        Assert.assertTrue(clientRequest.validateSchema(response, path));
-        logger.info("Successfully validated schema for Client List object");
+    @Then("the response matches the client schema")
+    public void theResponseMatchesTheClientSchema() {
+        clients.assertMatchesSchema(context.getResponse(), "schemas/clientListSchema.json");
+    }
+
+    @Then("the client with id {string} no longer exists")
+    public void theClientWithIdNoLongerExists(String id) {
+        Response check = clients.getClient(id);
+        assertThat(check.statusCode()).isEqualTo(200);
+        assertThat(check.jsonPath().getList("")).as("row should be gone after DELETE").isEmpty();
+    }
+
+    @Then("every client has a non-empty {string}")
+    public void everyClientHasANonEmpty(String field) {
+        List<String> values = context.getResponse().jsonPath().getList(field, String.class);
+        assertThat(values).isNotEmpty().allSatisfy(v -> assertThat(v).isNotBlank());
     }
 }

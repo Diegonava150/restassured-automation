@@ -3,95 +3,52 @@ package com.api.framework.requests;
 import com.api.framework.utils.Constants;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
-
-import java.util.HashMap;
-import java.util.Map;
+import io.restassured.specification.RequestSpecification;
 
 /**
- * BaseRequest class provides common HTTP request methods using RestAssured.
- * <p>
- * This class includes methods for performing GET, POST, PUT, and DELETE requests.
- * </p>
- * Example usage:
- * {@code
- * BaseRequest request = new BaseRequest();
- * Map<String, String> headers = request.createBaseHeaders();
- * Response response = request.requestGet("https://api.example.com/resource", headers);
- * }
+ * Thin RestAssured wrapper: the HTTP verbs, and nothing else.
+ *
+ * <p>No base URI is set here. {@code RestAssured.baseURI} is assigned once per scenario from
+ * the container's mapped port, so every request here is relative by design.
  */
 public class BaseRequest {
+
     /**
-     * Sends a GET request to the specified endpoint with the given headers.
+     * A request with the JSON content type set, and optionally PostgREST's
+     * {@code Prefer: return=representation}.
      *
-     * @param endpoint The API URL endpoint.
-     * @param headers  A map of headers to include in the request.
-     * @return A Response object containing the server's response to the GET request.
+     * <p>That header is the difference between a {@code 201} with an empty body and a
+     * {@code 201} carrying the row that was actually written. Asserting on what the server
+     * stored rather than on what you sent it is most of the value of a creation test.
      */
-    protected Response requestGet(String endpoint, Map<String, ?> headers) {
-        return RestAssured.given()
-                .contentType(Constants.VALUE_CONTENT_TYPE)
-                .headers(headers)
-                .when()
-                .get(endpoint);
+    private RequestSpecification request(boolean returnRepresentation) {
+        RequestSpecification spec = RestAssured.given().contentType(Constants.VALUE_CONTENT_TYPE);
+        return returnRepresentation ? spec.header(Constants.PREFER, Constants.RETURN_REPRESENTATION) : spec;
+    }
+
+    protected Response requestGet(String endpoint) {
+        return request(false).when().get(endpoint);
+    }
+
+    protected Response requestPost(String endpoint, Object body) {
+        return request(true).body(body).when().post(endpoint);
     }
 
     /**
-     * Sends a POST request to the specified endpoint with the given headers and body.
-     *
-     * @param endpoint The API URL endpoint.
-     * @param headers  A map of headers to include in the request.
-     * @param body     The body of the request, typically a model object.
-     * @return A Response object containing the server's response to the POST request.
+     * PostgREST updates with PATCH against a filter, not PUT against a path segment. PUT
+     * exists but demands the full row including its key, which makes a partial update
+     * impossible to express.
      */
-    protected Response requestPost(String endpoint, Map<String, ?> headers, Object body) {
-        return RestAssured.given()
-                .contentType(Constants.VALUE_CONTENT_TYPE)
-                .headers(headers)
-                .body(body)
-                .when()
-                .post(endpoint);
+    protected Response requestPatch(String endpoint, Object body) {
+        return request(true).body(body).when().patch(endpoint);
     }
 
-    /**
-     * Sends a PUT request to the specified endpoint with the given headers and body.
-     *
-     * @param endpoint The API URL endpoint.
-     * @param headers  A map of headers to include in the request.
-     * @param body     The body of the request, typically a model object.
-     * @return A Response object containing the server's response to the PUT request.
-     */
-    protected Response requestPut(String endpoint, Map<String, ?> headers, Object body) {
-        return RestAssured.given()
-                .contentType(Constants.VALUE_CONTENT_TYPE)
-                .headers(headers)
-                .body(body)
-                .when()
-                .put(endpoint);
+    protected Response requestDelete(String endpoint) {
+        return request(false).when().delete(endpoint);
     }
 
-    /**
-     * Sends a DELETE request to the specified endpoint with the given headers.
-     *
-     * @param endpoint The API URL endpoint.
-     * @param headers  A map of headers to include in the request.
-     * @return A Response object containing the server's response to the DELETE request.
-     */
-    protected Response requestDelete(String endpoint, Map<String, ?> headers) {
-        return RestAssured.given()
-                .contentType(Constants.VALUE_CONTENT_TYPE)
-                .headers(headers)
-                .when()
-                .delete(endpoint);
-    }
-
-    /**
-     * Creates a default map of headers with content type set to a predefined value.
-     *
-     * @return A map containing default headers.
-     */
-    protected Map<String, String> createBaseHeaders() {
-        Map<String, String> headers = new HashMap<>();
-        headers.put(Constants.CONTENT_TYPE, Constants.VALUE_CONTENT_TYPE);
-        return headers;
+    /** Posts a raw string body, so a test can send JSON that no model could produce. */
+    protected Response requestPostRaw(String endpoint, String rawBody) {
+        return request(true).body(rawBody).when().post(endpoint);
     }
 }

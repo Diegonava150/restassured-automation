@@ -1,160 +1,83 @@
 package com.api.framework.requests;
 
-import com.google.gson.Gson;
 import com.api.framework.models.Client;
 import com.api.framework.utils.Constants;
-import com.api.framework.utils.JsonFileReader;
+import com.google.gson.Gson;
 import io.restassured.module.jsv.JsonSchemaValidator;
-import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.List;
 
-/**
- * ClientRequest class provides methods for performing CRUD operations on Client resources.
- * <p>
- * This class extends {@link BaseRequest} to utilize common HTTP request methods.
- * </p>
- * Example usage:
- * {@code
- * ClientRequest clientRequest = new ClientRequest();
- * Response response = clientRequest.getClients();
- * }
- */
+/** CRUD against PostgREST's {@code /clients} endpoint. */
 public class ClientRequest extends BaseRequest {
-    private String endpoint;
 
     /**
-     * Fetches the list of all clients.
+     * Bodies are serialised with Gson explicitly rather than handing RestAssured an object.
      *
-     * @return A Response object containing the server's response to the GET request.
+     * <p>RestAssured picks a mapper from whatever is on the classpath, and the two candidates
+     * disagree on the thing that matters here: Gson omits null fields, Jackson writes them.
+     * A created client has a null {@code id}, and {@code "id": null} makes Postgres reject the
+     * insert outright. Choosing the mapper here makes that independent of the dependency tree.
      */
+    private static final Gson GSON = new Gson();
+
     public Response getClients() {
-        endpoint = String.format(Constants.URL, Constants.CLIENTS_PATH);
-        return requestGet(endpoint, createBaseHeaders());
+        return requestGet(Constants.CLIENTS_PATH);
     }
 
-    /**
-     * Fetches a client by its unique ID.
-     *
-     * @param clientId The unique identifier of the client.
-     * @return A Response object containing the server's response to the GET request.
-     */
-    public Response getClient(String clientId) {
-        endpoint = String.format(Constants.URL_WITH_PARAM, Constants.CLIENTS_PATH, clientId);
-        return requestGet(endpoint, createBaseHeaders());
+    public Response getClient(Object clientId) {
+        return requestGet(Constants.BY_ID.formatted(Constants.CLIENTS_PATH, clientId));
     }
 
-    /**
-     * Fetches the name of a client by its unique ID.
-     *
-     * @param clientId The unique identifier of the client.
-     * @return The name of the client.
-     * @throws RuntimeException if the client details could not be fetched.
-     */
-    public String getClientName(String clientId) {
-        Response response = getClient(clientId);
-        if (response.getStatusCode() == 200) {
-            Client client = response.as(Client.class);
-            return client.getName();
-        } else {
-            throw new RuntimeException("Failed to fetch client details for ID: " + clientId);
-        }
-    }
-
-    /**
-     * Creates a new client.
-     *
-     * @param client The client object to be created.
-     * @return A Response object containing the server's response to the POST request.
-     */
     public Response createClient(Client client) {
-        endpoint = String.format(Constants.URL, Constants.CLIENTS_PATH);
-        return requestPost(endpoint, createBaseHeaders(), client);
+        return requestPostRaw(Constants.CLIENTS_PATH, GSON.toJson(client));
+    }
+
+    /** Sends a body verbatim, so negative scenarios can post something no model could build. */
+    public Response createClientRaw(String rawJson) {
+        return requestPostRaw(Constants.CLIENTS_PATH, rawJson);
+    }
+
+    public Response updateClient(String rawJson, Object clientId) {
+        return requestPatch(Constants.BY_ID.formatted(Constants.CLIENTS_PATH, clientId), rawJson);
+    }
+
+    public Response deleteClient(Object clientId) {
+        return requestDelete(Constants.BY_ID.formatted(Constants.CLIENTS_PATH, clientId));
     }
 
     /**
-     * Updates an existing client by its unique ID.
+     * The first client in the response.
      *
-     * @param client   The client object containing updated information.
-     * @param clientId The unique identifier of the client.
-     * @return A Response object containing the server's response to the PUT request.
+     * <p>PostgREST answers every read with an array, even a filter that can match at most one
+     * row, so a single-object read is always "the array, then element zero".
      */
-    public Response updateClient(Client client, String clientId) {
-        endpoint = String.format(Constants.URL_WITH_PARAM, Constants.CLIENTS_PATH, clientId);
-        return requestPut(endpoint, createBaseHeaders(), client);
-    }
-
-    /**
-     * Deletes a client by its unique ID.
-     *
-     * @param clientId The unique identifier of the client.
-     * @return A Response object containing the server's response to the DELETE request.
-     */
-    public Response deleteClient(String clientId) {
-        endpoint = String.format(Constants.URL_WITH_PARAM, Constants.CLIENTS_PATH, clientId);
-        return requestDelete(endpoint, createBaseHeaders());
-    }
-
-    /**
-     * Converts a Response object to a Client entity.
-     *
-     * @param response The Response object containing the client data.
-     * @return A Client object.
-     */
-    public Client getClientEntity(@NotNull Response response) {
-        return response.as(Client.class);
-    }
-
-    /**
-     * Converts a Response object to a list of Client entities.
-     *
-     * @param response The Response object containing the client data.
-     * @return A list of Client objects.
-     */
-    public List<Client> getClientsEntity(@NotNull Response response) {
-        JsonPath jsonPath = response.jsonPath();
-        return jsonPath.getList("", Client.class);
-    }
-
-    /**
-     * Creates a default client using data from a JSON file.
-     *
-     * @return A Response object containing the server's response to the POST request.
-     */
-    public Response createDefaultClient() {
-        JsonFileReader jsonFile = new JsonFileReader();
-        return this.createClient(jsonFile.getClientByJson(Constants.DEFAULT_CLIENT_FILE_PATH));
-    }
-
-    /**
-     * Converts a JSON string to a Client entity.
-     *
-     * @param clientJson The JSON string representing a client.
-     * @return A Client object.
-     */
-    public Client getClientEntity(String clientJson) {
-        Gson gson = new Gson();
-        return gson.fromJson(clientJson, Client.class);
-    }
-
-    /**
-     * Validates the JSON schema of a response.
-     *
-     * @param response   The Response object to be validated.
-     * @param schemaPath The path to the JSON schema file.
-     * @return True if the response matches the schema, false otherwise.
-     */
-    public boolean validateSchema(Response response, String schemaPath) {
-        try {
-            response.then()
-                    .assertThat()
-                    .body(JsonSchemaValidator.matchesJsonSchemaInClasspath(schemaPath));
-            return true; // Return true if the assertion passes
-        } catch (AssertionError e) {
-            // Assertion failed, return false
-            return false;
+    public Client firstClient(Response response) {
+        List<Client> clients = clientList(response);
+        if (clients.isEmpty()) {
+            throw new AssertionError("Expected at least one client in the response, but it was empty: "
+                    + response.asString());
         }
+        return clients.get(0);
+    }
+
+    public List<Client> clientList(Response response) {
+        return response.jsonPath().getList("", Client.class);
+    }
+
+    public Client clientFromJson(String clientJson) {
+        return GSON.fromJson(clientJson, Client.class);
+    }
+
+    /**
+     * Asserts the response matches a JSON schema, and lets the failure through.
+     *
+     * <p>This used to return a boolean, catching the {@link AssertionError} and turning it
+     * into {@code false} for an {@code assertTrue} to trip over. The validation was real, but
+     * every failure reported "expected true, was false" and discarded the one thing worth
+     * reading — which field, and what was wrong with it. Throwing is the whole point of an
+     * assertion.
+     */
+    public void assertMatchesSchema(Response response, String schemaPath) {
+        response.then().assertThat().body(JsonSchemaValidator.matchesJsonSchemaInClasspath(schemaPath));
     }
 }

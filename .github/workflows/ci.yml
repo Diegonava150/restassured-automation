@@ -1,0 +1,69 @@
+name: CI
+
+# Every push and pull request. No secrets, no hosted API, no account required — the suite
+# starts the API it tests, so a fork gets a green build on its first push.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (JDK 21)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      # GitHub's ubuntu runners ship a working Docker daemon, which is the only thing
+      # Testcontainers needs. Nothing else to install and no service container to declare:
+      # the suite brings up Postgres and PostgREST itself, so CI runs exactly what a
+      # developer runs locally.
+      - name: Show Docker version
+        run: docker version --format 'Docker {{.Server.Version}} on {{.Server.Os}}/{{.Server.Arch}}'
+
+      - name: Run the suite
+        run: mvn -B test
+
+      # if: always() — a failing suite is precisely when the report is worth reading, and
+      # `if: failure()` would also skip it when the job is cancelled by its timeout.
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: target/allure-results
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload the Cucumber HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cucumber-report
+          path: target/cucumber
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Upload surefire output
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports
+          retention-days: 14
+          if-no-files-found: ignore

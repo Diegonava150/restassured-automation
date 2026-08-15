@@ -1,41 +1,19 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "array",
   "items": {
+    "type": "object",
     "properties": {
-      "name": {
-        "type": "string"
-      },
-      "trademark": {
-        "type": "string"
-      },
-      "stock": {
-        "type": "number"
-      },
-      "price": {
-        "type": "number"
-      },
-      "description": {
-        "type": "string"
-      },
-      "id": {
-        "type": "string"
-      },
-      "tags": {
-        "type": "string"
-      },
-      "active": {
-        "type": "boolean"
-      }
+      "id":          { "type": "integer" },
+      "name":        { "type": "string", "minLength": 1 },
+      "trademark":   { "type": "string" },
+      "stock":       { "type": "integer", "minimum": 0 },
+      "price":       { "type": ["number", "string"] },
+      "description": { "type": "string" },
+      "tags":        { "type": "string" },
+      "active":      { "type": "boolean" }
     },
-    "required": [
-      "name",
-      "trademark",
-      "stock",
-      "price",
-      "description",
-      "id",
-      "tags",
-      "active"
-    ]
+    "required": ["id", "name", "trademark", "stock", "price", "description", "tags", "active"],
+    "additionalProperties": false
   }
 }

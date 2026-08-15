@@ -2,142 +2,70 @@ package com.api.framework.requests;
 
 import com.api.framework.models.Resource;
 import com.api.framework.utils.Constants;
-import com.api.framework.utils.JsonFileReader;
 import com.google.gson.Gson;
 import io.restassured.module.jsv.JsonSchemaValidator;
-import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
-import org.jetbrains.annotations.NotNull;
-
 import java.util.List;
 
-/**
- * ResourceRequest class provides methods for performing CRUD operations on Resource entities.
- * <p>
- * This class extends {@link BaseRequest} to utilize common HTTP request methods.
- * </p>
- * Example usage:
- * {@code
- * ResourceRequest resourceRequest = new ResourceRequest();
- * Response response = resourceRequest.getResources();
- * }
- */
+/** CRUD against PostgREST's {@code /resources} endpoint. See {@link ClientRequest} on Gson. */
 public class ResourceRequest extends BaseRequest {
-    private String endpoint;
 
-    /**
-     * Fetches the list of all resources.
-     *
-     * @return A Response object containing the server's response to the GET request.
-     */
+    private static final Gson GSON = new Gson();
+
     public Response getResources() {
-        endpoint = String.format(Constants.URL, Constants.RESOURCES_PATH);
-        return requestGet(endpoint, createBaseHeaders());
+        return requestGet(Constants.RESOURCES_PATH);
     }
 
-    /**
-     * Fetches a resource by its unique ID.
-     *
-     * @param resourceId The unique identifier of the resource.
-     * @return A Response object containing the server's response to the GET request.
-     */
-    public Response getResource(String resourceId) {
-        endpoint = String.format(Constants.URL_WITH_PARAM, Constants.RESOURCES_PATH, resourceId);
-        return requestGet(endpoint, createBaseHeaders());
+    /** Active resources only — the filter runs in Postgres, not in the test. */
+    public Response getActiveResources() {
+        return requestGet(Constants.RESOURCES_PATH + "?active=is.true");
     }
 
-    /**
-     * Creates a new resource.
-     *
-     * @param resource The resource object to be created.
-     * @return A Response object containing the server's response to the POST request.
-     */
+    public Response getResource(Object resourceId) {
+        return requestGet(Constants.BY_ID.formatted(Constants.RESOURCES_PATH, resourceId));
+    }
+
+    /** Highest id first, one row: the most recently created resource. */
+    public Response getLastCreatedResource() {
+        return requestGet(Constants.RESOURCES_PATH + "?order=id.desc&limit=1");
+    }
+
     public Response createResource(Resource resource) {
-        endpoint = String.format(Constants.URL, Constants.RESOURCES_PATH);
-        return requestPost(endpoint, createBaseHeaders(), resource);
+        return requestPostRaw(Constants.RESOURCES_PATH, GSON.toJson(resource));
     }
 
-    /**
-     * Updates an existing resource by its unique ID.
-     *
-     * @param resource   The resource object containing updated information.
-     * @param resourceId The unique identifier of the resource.
-     * @return A Response object containing the server's response to the PUT request.
-     */
-    public Response updateResource(Resource resource, String resourceId) {
-        endpoint = String.format(Constants.URL_WITH_PARAM, Constants.RESOURCES_PATH, resourceId);
-        return requestPut(endpoint, createBaseHeaders(), resource);
+    public Response createResourceRaw(String rawJson) {
+        return requestPostRaw(Constants.RESOURCES_PATH, rawJson);
     }
 
-    /**
-     * Deletes a resource by its unique ID.
-     *
-     * @param resourceId The unique identifier of the resource.
-     * @return A Response object containing the server's response to the DELETE request.
-     */
-    public Response deleteResource(String resourceId) {
-        endpoint = String.format(Constants.URL_WITH_PARAM, Constants.RESOURCES_PATH, resourceId);
-        return requestDelete(endpoint, createBaseHeaders());
+    public Response updateResource(String rawJson, Object resourceId) {
+        return requestPatch(Constants.BY_ID.formatted(Constants.RESOURCES_PATH, resourceId), rawJson);
     }
 
-    /**
-     * Converts a Response object to a Resource entity.
-     *
-     * @param response The Response object containing the resource data.
-     * @return A Resource object.
-     */
-    public Resource getResourceEntity(@NotNull Response response) {
-        return response.as(Resource.class);
+    /** One PATCH against a filter updates every matching row — no client-side loop. */
+    public Response deactivateAllActiveResources() {
+        return requestPatch(Constants.RESOURCES_PATH + "?active=is.true", "{\"active\": false}");
     }
 
-    /**
-     * Converts a Response object to a list of Resource entities.
-     *
-     * @param response The Response object containing the resource data.
-     * @return A list of Resource objects.
-     */
-    public List<Resource> getResourcesEntity(@NotNull Response response) {
-        JsonPath jsonPath = response.jsonPath();
-        return jsonPath.getList("", Resource.class);
+    public Response deleteResource(Object resourceId) {
+        return requestDelete(Constants.BY_ID.formatted(Constants.RESOURCES_PATH, resourceId));
     }
 
-    /**
-     * Creates a default resource using data from a JSON file.
-     *
-     * @return A Response object containing the server's response to the POST request.
-     */
-    public Response createDefaultResource() {
-        JsonFileReader jsonFile = new JsonFileReader();
-        return this.createResource(jsonFile.getResourceByJson(Constants.DEFAULT_RESOURCE_FILE_PATH));
-    }
-
-    /**
-     * Converts a JSON string to a Resource entity.
-     *
-     * @param resourceJson The JSON string representing a resource.
-     * @return A Resource object.
-     */
-    public Resource getResourceEntity(String resourceJson) {
-        Gson gson = new Gson();
-        return gson.fromJson(resourceJson, Resource.class);
-    }
-
-    /**
-     * Validates the JSON schema of a response.
-     *
-     * @param response   The Response object to be validated.
-     * @param schemaPath The path to the JSON schema file.
-     * @return True if the response matches the schema, false otherwise.
-     */
-    public boolean validateSchema(Response response, String schemaPath) {
-        try {
-            response.then()
-                    .assertThat()
-                    .body(JsonSchemaValidator.matchesJsonSchemaInClasspath(schemaPath));
-            return true; // Return true if the assertion passes
-        } catch (AssertionError e) {
-            // Assertion failed, return false
-            return false;
+    public Resource firstResource(Response response) {
+        List<Resource> resources = resourceList(response);
+        if (resources.isEmpty()) {
+            throw new AssertionError(
+                    "Expected at least one resource in the response, but it was empty: " + response.asString());
         }
+        return resources.get(0);
+    }
+
+    public List<Resource> resourceList(Response response) {
+        return response.jsonPath().getList("", Resource.class);
+    }
+
+    /** See {@link ClientRequest#assertMatchesSchema} on why this throws rather than returns. */
+    public void assertMatchesSchema(Response response, String schemaPath) {
+        response.then().assertThat().body(JsonSchemaValidator.matchesJsonSchemaInClasspath(schemaPath));
     }
 }
