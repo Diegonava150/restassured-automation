@@ -1,10 +1,10 @@
-package com.testing.framework.stepDefinitions;
+package com.automation.api.steps;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.api.framework.models.Client;
-import com.api.framework.requests.ClientRequest;
-import com.testing.framework.support.TestContext;
+import com.automation.api.models.Client;
+import com.automation.api.requests.ClientRequest;
+import com.automation.api.support.TestContext;
 import io.cucumber.datatable.DataTable;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;

@@ -1,6 +1,6 @@
-package com.testing.framework.stepDefinitions;
+package com.automation.api.steps;
 
-import com.testing.framework.support.ApiUnderTest;
+import com.automation.api.support.ApiUnderTest;
 import io.cucumber.java.Before;
 import io.cucumber.java.Scenario;
 import io.restassured.RestAssured;

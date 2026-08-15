@@ -1,6 +1,6 @@
-package com.api.framework.requests;
+package com.automation.api.requests;
 
-import com.api.framework.utils.Constants;
+import com.automation.api.utils.Constants;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;

@@ -1,4 +1,4 @@
-package com.api.framework.models;
+package com.automation.api.models;
 
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;

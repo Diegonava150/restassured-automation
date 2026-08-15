@@ -1,4 +1,4 @@
-package com.api.framework.utils;
+package com.automation.api.utils;
 
 /**
  * Endpoint paths and header constants.

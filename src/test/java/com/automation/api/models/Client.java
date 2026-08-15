@@ -1,4 +1,4 @@
-package com.api.framework.models;
+package com.automation.api.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -1,7 +1,7 @@
-package com.api.framework.requests;
+package com.automation.api.requests;
 
-import com.api.framework.models.Resource;
-import com.api.framework.utils.Constants;
+import com.automation.api.models.Resource;
+import com.automation.api.utils.Constants;
 import com.google.gson.Gson;
 import io.restassured.module.jsv.JsonSchemaValidator;
 import io.restassured.response.Response;

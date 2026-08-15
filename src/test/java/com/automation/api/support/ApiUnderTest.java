@@ -1,4 +1,4 @@
-package com.testing.framework.support;
+package com.automation.api.support;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;

@@ -123,19 +123,26 @@ including when it exits badly. Nothing is left running.
 ## How it is wired
 
 ```
-src/main/java/com/api/framework/
-  models/            Client, Resource — types match the database, not a mock's strings
-  requests/          BaseRequest + one class per endpoint
-  utils/             paths and headers (deliberately no base URL — see below)
-src/test/java/com/testing/framework/
-  runners/           RunCucumberTest — JUnit Platform suite
-  stepDefinitions/   ClientSteps, ResourceSteps, Hooks
-  support/           ApiUnderTest (the containers), TestContext (per-scenario state)
+src/test/java/com/automation/api/
+  models/       Client, Resource — types match the database, not a mock's strings
+  requests/     BaseRequest + one class per endpoint
+  utils/        paths and headers (deliberately no base URL — see below)
+  support/      ApiUnderTest (the containers), TestContext (per-scenario state)
+  steps/        ClientSteps, ResourceSteps, Hooks
+  runners/      RunCucumberTest — the JUnit Platform suite
 src/test/resources/
-  db/init.sql        the schema, the constraints and the seed data — i.e. the API itself
-  features/          the scenarios
-  schemas/           JSON schemas the responses are validated against
+  db/init.sql   the schema, constraints and seed data — i.e. the API itself
+  features/     the scenarios
+  schemas/      JSON schemas the responses are validated against
+  log4j2.properties
 ```
+
+**Everything is under `src/test`, and that is deliberate.** This repository produces no
+production artifact — every class here exists to test something else. The previous layout split
+it across `src/main` and `src/test` under two unrelated package roots
+(`com.api.framework` and `com.testing.framework`), which forced RestAssured and Gson to compile
+scope and made `mvn package` build a jar of test helpers that nothing consumes. One source root,
+one package root, and the dependencies scoped honestly.
 
 **There is no base URL anywhere in this repository.** Docker assigns an ephemeral host port on
 every run, so the address is only knowable at runtime.

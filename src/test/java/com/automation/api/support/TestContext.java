@@ -1,4 +1,4 @@
-package com.testing.framework.support;
+package com.automation.api.support;
 
 import io.restassured.response.Response;
 
