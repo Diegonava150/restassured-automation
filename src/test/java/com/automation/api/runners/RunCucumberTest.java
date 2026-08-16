@@ -5,7 +5,7 @@ import static io.cucumber.junit.platform.engine.Constants.PLUGIN_PROPERTY_NAME;
 
 import org.junit.platform.suite.api.ConfigurationParameter;
 import org.junit.platform.suite.api.IncludeEngines;
-import org.junit.platform.suite.api.SelectClasspathResource;
+import org.junit.platform.suite.api.SelectPackages;
 import org.junit.platform.suite.api.Suite;
 
 /**
@@ -22,7 +22,10 @@ import org.junit.platform.suite.api.Suite;
  */
 @Suite
 @IncludeEngines("cucumber")
-@SelectClasspathResource("features")
+// Package selector, not @SelectClasspathResource. The resource selector works but Cucumber
+// warns against it for selecting a whole directory, because it resolves to a single resource
+// rather than the features within it.
+@SelectPackages("features")
 @ConfigurationParameter(key = GLUE_PROPERTY_NAME, value = "com.automation.api.steps")
 @ConfigurationParameter(
         key = PLUGIN_PROPERTY_NAME,
