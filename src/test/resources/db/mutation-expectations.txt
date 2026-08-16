@@ -1,0 +1,45 @@
+# Every scenario that MUST fail when the suite runs against init-weakened.sql.
+#
+# The "Prove the negative tests can fail" job reads this file and requires each line below to
+# appear in the failure list. Its previous version only required the suite to go red at all —
+# which meant one surviving failure kept the job green while the other six mutations quietly
+# stopped being caught. "Something failed" is not the claim worth making; "these nine assertions
+# each have teeth" is.
+#
+# Adding a constraint to init.sql and a scenario asserting it means adding three things: the
+# weakening in init-weakened.sql, and a line here. Miss the line and the coverage gap is
+# invisible; miss the weakening and this file fails the build, which is the intended direction.
+
+Clients endpoint - Creating a client without a required field is rejected
+Clients endpoint - Creating a client with a duplicate email is rejected
+Clients endpoint - Creating a client with a malformed email is rejected
+Clients endpoint - Updating a client into a duplicate email is rejected
+Resources endpoint - Creating a resource with negative stock is rejected
+Resources endpoint - Creating a resource with a negative price is rejected
+Resources endpoint - Creating a resource with a blank name is rejected
+ConcurrentWritersTest.duplicateInsertRaceHasExactlyOneWinner
+
+# ---------------------------------------------------------------------------------------------
+# Deliberately absent, and why. Two negative scenarios cannot be covered by this technique, and
+# saying so is better than a coverage number that quietly rounds them in.
+#
+#   Clients endpoint - Creating a client from malformed JSON is rejected
+#       Asserts PGRST102. PostgREST rejects the body before Postgres ever sees it, so there is
+#       no constraint in this file to remove. The scenario tests the platform's parser, not
+#       anything this schema declares.
+#
+#   Resources endpoint - Creating a resource with a non-numeric stock is rejected
+#       Asserts 400 on "not-a-number" in an integer column. That is Postgres type coercion,
+#       which cannot be switched off short of retyping the column to text — at which point the
+#       mutant stops resembling the real schema and the result stops meaning anything.
+#
+# Both are still worth having. They are just guaranteed by the platform rather than by this
+# repository, so mutation testing has nothing to say about them either way.
+#
+# ---------------------------------------------------------------------------------------------
+# Known cascade, not asserted here:
+#
+#   SchemaValidationHasTeethTest.matchingSchemaPasses also fails under the weakened schema,
+#   because dropping the email CHECK lets "not-an-email" reach the database and the response
+#   then violates clientListSchema.json's format rule. Real, deterministic, and not a designed
+#   mutation catch — so the job reports extra failures rather than requiring them.

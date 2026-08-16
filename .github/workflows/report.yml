@@ -80,6 +80,41 @@ jobs:
             echo "no previous history — this is the first published report"
           fi
 
+      # The report shows nine scenarios named "... is rejected", all green, and a green tick
+      # says the same thing whether the assertion held or never ran. The mutation job knows the
+      # difference and its verdict was previously buried in a workflow log nobody opens, so it
+      # is folded into the Environment widget here — next to the report it qualifies.
+      #
+      # In this workflow rather than in AllureMetadata because the two jobs are siblings: the
+      # test job cannot see the mutation job's result, and this workflow can see both.
+      - name: Record the mutation verdict in the report environment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          expectations=src/test/resources/db/mutation-expectations.txt
+          proven=$(grep -cvE '^\s*(#|$)' "$expectations" || echo 0)
+          uncoverable=$(grep -cE '^#   (Clients|Resources) endpoint - ' "$expectations" || echo 0)
+
+          run_id="${{ github.event.workflow_run.id }}"
+          verdict="not run (report published by hand)"
+          if [ -n "$run_id" ]; then
+            conclusion=$(gh api "repos/${{ github.repository }}/actions/runs/$run_id/jobs" \
+              --jq '.jobs[] | select(.name == "Prove the negative tests can fail") | .conclusion' 2>/dev/null || true)
+            case "$conclusion" in
+              success) verdict="passed - every assertion below went red with its constraint removed" ;;
+              "")      verdict="no result found for this run" ;;
+              *)       verdict="$conclusion - AN ASSERTION STOPPED BEING FALSIFIABLE" ;;
+            esac
+          fi
+
+          {
+            echo ""
+            echo "Negative.tests.proven.falsifiable=$proven (mutation job, see mutation-expectations.txt)"
+            echo "Negative.tests.not.coverable=$uncoverable (PostgREST parsing and Postgres type coercion - no constraint to remove)"
+            echo "Mutation.job=$verdict"
+          } >> target/allure-results/environment.properties
+          tail -4 target/allure-results/environment.properties
+
       # No executor.json here. allure-maven writes its own ("Maven") over anything placed
       # in the results directory, so a hand-written one is dead config that looks like a
       # feature. Shipping it would be worse than its absence. The CI run that produced a report

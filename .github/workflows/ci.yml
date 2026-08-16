@@ -90,16 +90,55 @@ jobs:
           java-version: 21
           cache: maven
 
+      # Not "did the suite go red" — which one surviving failure would satisfy while the other
+      # mutations quietly stopped being caught — but "did exactly the scenarios in
+      # mutation-expectations.txt go red". Each line there is a claim that one assertion has
+      # teeth, and each is checked individually.
       - name: Run against a schema with the constraints removed
         run: |
-          if ./mvnw -B test -Dapi.schema=db/init-weakened.sql > mutation.log 2>&1; then
-            echo "::error::The suite PASSED against a database with UNIQUE(email) and the stock/price CHECKs removed."
-            echo "::error::The negative scenarios are not asserting what they claim to assert."
+          ./mvnw -B test -Dapi.schema=db/init-weakened.sql > mutation.log 2>&1 && SUITE_PASSED=1 || SUITE_PASSED=0
+
+          if [ "$SUITE_PASSED" = "1" ]; then
+            echo "::error::The suite PASSED against a schema with every asserted constraint removed."
+            echo "::error::None of the negative scenarios is asserting what it claims to assert."
             tail -40 mutation.log
             exit 1
           fi
-          echo "Suite failed as required. Scenarios that caught the weakening:"
-          grep -E '^\[ERROR\].*(rejected|racing)' mutation.log | sed 's/ -- Time.*//' || true
+
+          # Surefire prints one line per failure as "[ERROR] <FQCN>.<scenario> -- Time elapsed...".
+          # The " -- Time" anchor is what separates these from the "Tests run:" summary lines,
+          # which end in " -- in <FQCN>".
+          sed -n 's/^\[ERROR\] \+\([^ ].*\) -- Time.*/\1/p' mutation.log \
+            | sed 's/^com\.automation\.api\.runners\.RunCucumberTest\.//; s/^com\.automation\.api\.//' \
+            | sort -u > failed.txt
+
+          grep -vE '^\s*(#|$)' src/test/resources/db/mutation-expectations.txt | sort -u > expected.txt
+
+          echo "### Mutation coverage" >> "$GITHUB_STEP_SUMMARY"
+          status=0
+          while IFS= read -r scenario; do
+            if grep -Fqx "$scenario" failed.txt; then
+              echo "- ✅ \`$scenario\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error::Expected to fail under the weakened schema, but PASSED: $scenario"
+              echo "- ❌ **$scenario** — passed with its constraint removed, so nothing proves it can fail" >> "$GITHUB_STEP_SUMMARY"
+              status=1
+            fi
+          done < expected.txt
+
+          # Extras are reported, not required. One is known and documented (the schema-teeth
+          # cascade); a genuinely new one is worth a reader's attention without being a failure.
+          if comm -13 expected.txt failed.txt | grep -q .; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Also failed, not required by the expectations file:" >> "$GITHUB_STEP_SUMMARY"
+            comm -13 expected.txt failed.txt | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "$status" != "0" ]; then
+            echo "::error::A mutation stopped being caught. See mutation-expectations.txt."
+            exit 1
+          fi
+          echo "All $(wc -l < expected.txt) expected scenarios failed as required."
 
       - name: Upload the mutation log
         if: always()
