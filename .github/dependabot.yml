@@ -1,0 +1,62 @@
+# Dependency rot is the failure mode this repository keeps demonstrating.
+#
+# Rebuilding it turned up three separate cases, none of which the test suite could catch,
+# because a green `mvn test` says nothing about whether the things around it still resolve:
+#
+#   - Lombok 1.18.28 predated JDK 21 support; the project would not compile at all.
+#   - allure-commandline:zip:2.35.4 had never existed, so report generation died while the
+#     tests stayed green — invisible until someone opened the report.
+#   - simple-elf/allure-report-action builds FROM openjdk:8-jre-alpine, an image Docker Hub
+#     removed; the action could not start.
+#
+# One per ecosystem, because those three failures came from three different ones.
+
+version: 2
+
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, java]
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Anything sharing a version line moves together. Cucumber's engine and its java module
+      # at different versions is a broken build, and one PR per artifact invites exactly that.
+      cucumber:
+        patterns: ["io.cucumber:*"]
+      allure:
+        patterns: ["io.qameta.allure:*"]
+      testcontainers:
+        patterns: ["org.testcontainers:*"]
+      junit:
+        patterns: ["org.junit*:*"]
+      logging:
+        patterns: ["org.apache.logging.log4j:*", "org.slf4j:*"]
+    ignore:
+      # Testcontainers 2.x reorganised its modules — there is no org.testcontainers:postgresql
+      # at 2.x. That is a migration to do deliberately, not to accept from a bot.
+      - dependency-name: "org.testcontainers:*"
+        update-types: ["version-update:semver-major"]
+
+  # The openjdk:8-jre-alpine failure came from an action, not a library. Nothing in a Maven
+  # update would ever have caught it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: "ci"
+
+  # And the API under test is two container images. They are pinned on purpose; this makes the
+  # pin a decision that gets revisited rather than one that quietly ages.
+  - package-ecosystem: docker
+    directory: /src/test/resources/db
+    schedule:
+      interval: monthly
+    labels: [dependencies, docker]

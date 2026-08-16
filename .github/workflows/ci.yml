@@ -67,3 +67,45 @@ jobs:
           path: target/surefire-reports
           retention-days: 14
           if-no-files-found: ignore
+
+  # A negative test that cannot fail is not a test, and nothing in a green run distinguishes
+  # "the constraint held" from "the assertion never ran". This job removes the constraints the
+  # negative scenarios exercise — UNIQUE on email, the CHECKs on stock and price — and requires
+  # the suite to go red. A green result here is the failure.
+  #
+  # The same reasoning as the schema-teeth test, applied to the database rather than to a
+  # schema file: prove the check can fail before trusting that it passed.
+  mutation:
+    name: Prove the negative tests can fail
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Run against a schema with the constraints removed
+        run: |
+          if ./mvnw -B test -Dapi.schema=db/init-weakened.sql > mutation.log 2>&1; then
+            echo "::error::The suite PASSED against a database with UNIQUE(email) and the stock/price CHECKs removed."
+            echo "::error::The negative scenarios are not asserting what they claim to assert."
+            tail -40 mutation.log
+            exit 1
+          fi
+          echo "Suite failed as required. Scenarios that caught the weakening:"
+          grep -E '^\[ERROR\].*(rejected|racing)' mutation.log | sed 's/ -- Time.*//' || true
+
+      - name: Upload the mutation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-log
+          path: mutation.log
+          retention-days: 7
+          if-no-files-found: ignore

@@ -8,6 +8,11 @@ import com.automation.api.requests.ClientRequest;
 import com.automation.api.support.ApiUnderTest;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import io.qameta.allure.Story;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +32,10 @@ import org.junit.jupiter.api.Test;
  * a failure that names the missing property. If someone reintroduces the swallow, this goes red
  * rather than the whole suite going quietly green.
  */
+@Epic("API")
+@Feature("Contract")
+@Story("Response bodies match their JSON schema")
+@Severity(SeverityLevel.CRITICAL)
 class SchemaValidationHasTeethTest {
 
     private static final ClientRequest CLIENTS = new ClientRequest();

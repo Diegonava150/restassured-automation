@@ -13,6 +13,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import io.qameta.allure.Epic;
+import io.qameta.allure.Feature;
+import io.qameta.allure.Severity;
+import io.qameta.allure.SeverityLevel;
+import io.qameta.allure.Story;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,6 +34,10 @@ import org.junit.jupiter.api.BeforeAll;
  * point here is that two things happen with no order between them — a {@code When} and an
  * {@code And} would misrepresent it as ordered. A plain JUnit test says what is meant.
  */
+@Epic("API")
+@Feature("Clients")
+@Story("Concurrent writes are serialised by the database")
+@Severity(SeverityLevel.CRITICAL)
 class ConcurrentWritersTest {
 
     private static final ClientRequest CLIENTS = new ClientRequest();

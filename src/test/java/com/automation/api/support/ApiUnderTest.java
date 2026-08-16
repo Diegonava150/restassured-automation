@@ -69,7 +69,7 @@ public final class ApiUnderTest {
             // Copied rather than bind-mounted so this works identically on a CI runner,
             // a Windows host, and a remote Docker daemon.
             .withCopyFileToContainer(
-                    MountableFile.forClasspathResource("db/init.sql"), "/docker-entrypoint-initdb.d/init.sql");
+                    MountableFile.forClasspathResource(schemaResource()), "/docker-entrypoint-initdb.d/init.sql");
 
     private static final GenericContainer<?> POSTGREST = new GenericContainer<>(
                     DockerImageName.parse(POSTGREST_IMAGE))
@@ -89,6 +89,18 @@ public final class ApiUnderTest {
             .waitingFor(Wait.forHttp("/clients?limit=1").forPort(POSTGREST_PORT).forStatusCode(200));
 
     private static boolean started;
+
+    /**
+     * Which schema to boot the database with. {@code db/init.sql} unless overridden.
+     *
+     * <p>The override exists for one job: CI boots a deliberately weakened schema and asserts
+     * the suite goes <em>red</em>. A negative test that cannot fail is not testing anything, and
+     * the only way to know it can is to remove the constraint it claims to be exercising. See
+     * the "Prove the negative tests can fail" job.
+     */
+    private static String schemaResource() {
+        return System.getProperty("api.schema", "db/init.sql");
+    }
 
     private ApiUnderTest() {}
 
