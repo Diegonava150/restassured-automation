@@ -1,15 +1,20 @@
 -- A DELIBERATELY WEAKENED COPY of init.sql. Not used by any normal run.
 --
--- UNIQUE on clients.email is removed, and the CHECKs on resources.stock and price are dropped.
--- Booting the suite against this schema MUST make it fail: the scenarios asserting 409 on a
--- duplicate email and 400 on negative stock have had the very thing they assert taken away.
+-- Every constraint a negative scenario asserts on is removed here. Booting the suite against
+-- this schema MUST make it fail: the scenario asserting 409 on a duplicate email has had the
+-- unique index taken away, the one asserting 400 on negative stock has lost its CHECK, and so on.
 --
 -- A negative test that cannot fail is not a test. This file is how CI proves these ones can —
 -- see the "Prove the negative tests can fail" job, which runs the suite against this schema and
 -- treats a green result as the failure.
 --
--- Keep in step with init.sql. Add a constraint there and a scenario asserting it, and weaken it
--- here too, or the mutation job silently stops covering it.
+-- The exact set of scenarios that must go red is in mutation-expectations.txt, and the job
+-- compares against it rather than settling for "something failed". Removing a weakening here
+-- without removing the line there is a build failure, which is the only reason the two files
+-- stay in step.
+--
+-- Keep in step with init.sql too. Add a constraint there and a scenario asserting it, and weaken
+-- it here, or the mutation job silently stops covering it.
 
 -- Schema for the containerised API under test.
 --
@@ -30,7 +35,10 @@ CREATE SCHEMA IF NOT EXISTS api;
 
 CREATE TABLE api.clients (
     id         serial PRIMARY KEY,
-    "name"     text NOT NULL CHECK (length(btrim("name")) > 0),
+    -- NOT NULL removed. "Creating a client without a required field is rejected" asserts 23502,
+    -- which is precisely this constraint firing; with it present that scenario passed under
+    -- mutation, meaning nothing proved it could fail.
+    "name"     text CHECK (length(btrim("name")) > 0),
     "lastName" text NOT NULL CHECK (length(btrim("lastName")) > 0),
     country    text NOT NULL,
     city       text NOT NULL,
@@ -42,7 +50,7 @@ CREATE TABLE api.clients (
 
 CREATE TABLE api.resources (
     id          serial PRIMARY KEY,
-    "name"      text NOT NULL CHECK (length(btrim("name")) > 0),
+    "name"      text NOT NULL,  -- CHECK deliberately removed: "a blank name is rejected"
     trademark   text NOT NULL,
     -- Non-negative stock and price are the constraints most worth asserting on:
     -- they are the ones a careless client actually violates.
