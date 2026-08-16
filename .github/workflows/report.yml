@@ -44,7 +44,7 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -54,7 +54,7 @@ jobs:
           cache: maven
 
       - name: Download the results from the CI run
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: allure-results
           path: target/allure-results
@@ -107,7 +107,7 @@ jobs:
       - uses: actions/configure-pages@v6
 
       - name: Upload the report
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: target/site/allure-maven-plugin
 
