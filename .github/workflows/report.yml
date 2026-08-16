@@ -65,7 +65,7 @@ jobs:
       # history out of, so it is cached instead. restore-keys makes every run pick up the most
       # recent cache rather than only an exact key match, which is what lets the trend survive.
       - name: Restore previous history
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: allure-history
           key: allure-history-${{ github.run_id }}
@@ -99,7 +99,7 @@ jobs:
 
       - name: Cache the history
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: allure-history
           key: allure-history-${{ github.run_id }}
