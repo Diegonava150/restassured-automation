@@ -170,6 +170,15 @@
         <!-- Attaches the actual HTTP exchange to each step. Without it an API report shows
              which scenarios passed and nothing about what was sent or returned, which is the
              only thing anyone opens an API report to find out. -->
+        <!-- allure-cucumber7-jvm reports Cucumber scenarios only. The plain JUnit tests
+             beside them — the schema-teeth and concurrency ones — were absent from the report
+             entirely: it said 22 while the build ran 25. This adapter picks them up. -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-junit5</artifactId>
+            <version>${allure.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>io.qameta.allure</groupId>
             <artifactId>allure-rest-assured</artifactId>

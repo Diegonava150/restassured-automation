@@ -80,22 +80,10 @@ jobs:
             echo "no previous history — this is the first published report"
           fi
 
-      # Links each report back to the CI run that produced it, and gives the trend graph its
-      # build numbers — without this every historical point is an anonymous "unknown".
-      - name: Record which CI run produced this
-        run: |
-          RUN_ID='${{ github.event.workflow_run.id || github.run_id }}'
-          cat > target/allure-results/executor.json <<JSON
-          {
-            "name": "GitHub Actions",
-            "type": "github",
-            "reportName": "restassured-automation",
-            "buildOrder": ${{ github.run_number }},
-            "buildName": "CI #${{ github.run_number }}",
-            "buildUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/$RUN_ID",
-            "reportUrl": "${{ steps.pages.outputs.base_url || 'https://diegonava150.github.io/restassured-automation/' }}"
-          }
-          JSON
+      # No executor.json here. allure-maven writes its own ("Maven") over anything placed
+      # in the results directory, so a hand-written one is dead config that looks like a
+      # feature. Shipping it would be worse than its absence. The CI run that produced a report
+      # is reachable from the Actions tab in the meantime.
 
       # allure-maven, already configured in the pom. Output lands in
       # target/site/allure-maven-plugin.
