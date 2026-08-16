@@ -207,8 +207,17 @@
                          surefire's default includes would find nothing. Being explicit
                          here is what stops `mvn test` from passing having run zero tests. -->
                     <includes>
+                        <!-- The Cucumber suite, plus the plain JUnit tests that sit alongside
+                             it. Both are named explicitly: surefire's defaults would find the
+                             *Test classes and miss the suite entirely, and a suite that runs
+                             nothing still reports BUILD SUCCESS. -->
                         <include>**/RunCucumberTest.java</include>
+                        <include>**/*Test.java</include>
                     </includes>
+                    <!-- One JVM, so all three test classes share the single container stack
+                         rather than each paying to start Postgres and PostgREST again. -->
+                    <reuseForks>true</reuseForks>
+                    <forkCount>1</forkCount>
                     <systemPropertyVariables>
                         <cucumber.junit-platform.naming-strategy>long</cucumber.junit-platform.naming-strategy>
                         <!-- Without this the Allure Cucumber plugin writes to ./allure-results

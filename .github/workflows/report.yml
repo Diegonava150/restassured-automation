@@ -1,0 +1,78 @@
+name: Report
+
+# Publishes the Allure report to GitHub Pages, carrying history forward.
+#
+# The history is the point. A single report says "22 passed today", which the CI badge already
+# said. Restoring the previous run's history/ directory before generating turns the same data
+# into a trend — retries, flakiness, and duration over time — which is the thing that actually
+# tells you whether a suite is getting better or worse.
+#
+# Runs on workflow_run rather than on push so it triggers off the CI run's artifact, and so a
+# failing suite still publishes its report. A report you only get when everything passed is a
+# report you never need.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: allure-report
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish Allure report
+    runs-on: ubuntu-latest
+    # Only for the default branch: a report published from every PR branch would overwrite the
+    # trend with whatever that branch happened to do.
+    if: github.event.workflow_run.head_branch == 'main' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the results from the CI run
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+          run-id: ${{ github.event.workflow_run.id || github.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      # First run has no gh-pages branch yet, and that is not an error — it is just the first
+      # run. keep_files below is what stops each publish wiping the previous history.
+      - name: Restore previous history
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+        continue-on-error: true
+
+      - name: Carry history forward
+        run: |
+          mkdir -p allure-results
+          if [ -d gh-pages/history ]; then
+            cp -r gh-pages/history allure-results/history
+            echo "restored $(ls allure-results/history | wc -l) history file(s)"
+          else
+            echo "no previous history — this is the first published report"
+          fi
+
+      - name: Generate the report
+        uses: simple-elf/allure-report-action@v1.12
+        with:
+          allure_results: allure-results
+          allure_history: allure-history
+          keep_reports: 30
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history

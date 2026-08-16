@@ -7,6 +7,7 @@ Feature: Resources endpoint
 
   # ------------------------------------------------------------------ read
 
+  @smoke
   Scenario: List every resource
     When I request the list of resources
     Then the response status is 200
@@ -43,6 +44,7 @@ Feature: Resources endpoint
 
   # ---------------------------------------------------------------- create
 
+  @smoke
   Scenario: Create a resource
     When I create a resource with the body:
       """
@@ -51,6 +53,7 @@ Feature: Resources endpoint
     Then the response status is 201
     And the response matches the resource schema
 
+  @smoke
   Scenario: Creating a resource with negative stock is rejected
     When I create a resource with the body:
       """

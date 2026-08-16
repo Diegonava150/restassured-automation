@@ -2,16 +2,17 @@
 
 [![CI](https://github.com/Diegonava150/restassured-automation/actions/workflows/ci.yml/badge.svg)](https://github.com/Diegonava150/restassured-automation/actions/workflows/ci.yml)
 [![Java 21](https://img.shields.io/badge/Java-21-007396?logo=openjdk&logoColor=white)](pom.xml)
-[![Testcontainers](https://img.shields.io/badge/Testcontainers-Postgres%20%2B%20PostgREST-2496ED?logo=docker&logoColor=white)](src/test/java/com/testing/framework/support/ApiUnderTest.java)
+[![Testcontainers](https://img.shields.io/badge/Testcontainers-Postgres%20%2B%20PostgREST-2496ED?logo=docker&logoColor=white)](src/test/java/com/automation/api/support/ApiUnderTest.java)
 
 API test suite in **Java 21 · REST Assured · Cucumber 7 · JUnit Platform**, running against an
 API it starts itself.
 
 ```bash
-mvn test
+./mvnw test
 ```
 
-That is the whole setup. No API key, no account, no hosted service, no `.env`. Docker and a JDK.
+That is the whole setup. No API key, no account, no hosted service, no `.env`, and no Maven
+install — the wrapper fetches it. Docker and a JDK.
 
 ---
 
@@ -56,7 +57,7 @@ return a number.
 
 ## What the suite covers
 
-**22 scenarios.** Every happy path has its negative counterpart — that pairing is the point, and
+**22 Cucumber scenarios plus 3 JUnit tests.** Every happy path has its negative counterpart — that pairing is the point, and
 the previous version of this suite had none of the second column.
 
 ### `/clients` — [clients.feature](src/test/resources/features/clients.feature)
@@ -72,6 +73,15 @@ the previous version of this suite had none of the second column.
 | Update a client | Update a row that does not exist | `200` + empty list |
 | | Update into a duplicate email | `409` · `23505` |
 | Delete a client | Delete a row that does not exist | `204` — delete is idempotent |
+
+### Two things Gherkin is the wrong shape for
+
+| Test | What it pins down |
+| --- | --- |
+| [`SchemaValidationHasTeethTest`](src/test/java/com/automation/api/SchemaValidationHasTeethTest.java) | That a violated schema **fails, naming the property**. Every other test asserts schemas *pass*, so none would notice if validation silently broke again — and it had been broken. Points a good response at a deliberately wrong schema and demands an `AssertionError` mentioning the missing field. |
+| [`ConcurrentWritersTest`](src/test/java/com/automation/api/ConcurrentWritersTest.java) | Two writers racing for the same unique email: exactly one gets `201`, the other `409`, and **exactly one row persists**. A `CyclicBarrier` releases both at once, because starting two threads and hoping usually means the first finishes before the second is sent. Not expressible in Gherkin, which describes ordered steps — the whole point here is that there is no order. |
+
+The old hosted mock could not have carried either of these: no unique index means no race to lose.
 
 ### `/resources` — [resources.feature](src/test/resources/features/resources.feature)
 
@@ -96,10 +106,15 @@ mock's quirk as an API contract.
 ## How to run it
 
 ```bash
-mvn test                  # the whole suite; starts and stops its own containers
-mvn test -Dcucumber.filter.tags="@wip"   # if you tag something while working on it
-mvn allure:serve          # open the Allure report in a browser
+./mvnw test                                    # everything; starts its own containers
+./mvnw test -Dcucumber.filter.tags="@smoke"    # 6-scenario subset, ~10s
+./mvnw allure:serve                            # open the Allure report in a browser
 ```
+
+`@smoke` covers one read, one create and one constraint rejection per endpoint — enough to catch
+a broken deployment. It is opt-in: **the default run executes every scenario.** The previous
+version of this suite had that backwards, pinning the runner to `@active and @smoke` so anything
+untagged never ran and nobody was told.
 
 Reports land in `target/`:
 
@@ -146,7 +161,7 @@ one package root, and the dependencies scoped honestly.
 
 **There is no base URL anywhere in this repository.** Docker assigns an ephemeral host port on
 every run, so the address is only knowable at runtime.
-[`ApiUnderTest.baseUri()`](src/test/java/com/testing/framework/support/ApiUnderTest.java) reads it
+[`ApiUnderTest.baseUri()`](src/test/java/com/automation/api/support/ApiUnderTest.java) reads it
 from the mapped port and `Hooks` assigns it to RestAssured before each scenario. A hardcoded URL
 would be wrong by construction, and two runs on one machine would collide on a fixed one.
 
@@ -177,7 +192,7 @@ this case: started once on first touch, reaped at JVM exit.
 
 This repository was four commits of a template. The rewrite is recorded honestly:
 
-**Verified by running it.** The 22 scenarios pass locally against Docker in ~10 s, and the same
+**Verified by running it.** All 25 tests pass locally against Docker in ~11 s, and the same
 command runs in CI. Schema validation was verified to *fail* by adding a required property the API
 does not return — it produced three failures naming the missing field, which is the check having
 teeth rather than being decoration.

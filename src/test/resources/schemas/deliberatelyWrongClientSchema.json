@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "_comment": "Not a real contract. It requires a property the API does not return, so that SchemaValidationHasTeethTest can prove a violated schema actually fails the build. Do not 'fix' this file — its wrongness is the fixture.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id":          { "type": "integer" },
+      "nationality": { "type": "string" }
+    },
+    "required": ["id", "nationality"]
+  }
+}

@@ -10,6 +10,7 @@ Feature: Clients endpoint
 
   # ------------------------------------------------------------------ read
 
+  @smoke
   Scenario: List every client
     When I request the list of clients
     Then the response status is 200
@@ -34,6 +35,7 @@ Feature: Clients endpoint
 
   # ---------------------------------------------------------------- create
 
+  @smoke
   Scenario: Create a client
     Given I have a client with the following details:
       | name    | lastName | country  | city   | phone      | email                     |
@@ -51,6 +53,7 @@ Feature: Clients endpoint
     Then the response status is 400
     And the error code is "23502"
 
+  @smoke
   Scenario: Creating a client with a duplicate email is rejected
     When I create a client with the body:
       """
