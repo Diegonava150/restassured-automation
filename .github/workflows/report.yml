@@ -104,7 +104,7 @@ jobs:
           path: allure-history
           key: allure-history-${{ github.run_id }}
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
       - name: Upload the report
         uses: actions/upload-pages-artifact@v3
