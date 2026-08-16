@@ -148,3 +148,55 @@ jobs:
           path: mutation.log
           retention-days: 7
           if-no-files-found: ignore
+
+  # A repository with no secrets in it looks exactly like a repository nobody scanned.
+  #
+  # Over the full history rather than the working tree. A key committed in March and deleted in
+  # April is still in the pack file, still reachable by anyone who clones, and still has to be
+  # rotated — deleting the line changes nothing. A working-tree scan reports that repository
+  # clean, which is the more dangerous of the two answers.
+  #
+  # The image tag is pinned. Dependabot cannot see it: it is a string inside a run step, the same
+  # blind spot recorded in .github/dependabot.yml for the Postgres images. That makes bumping it a
+  # manual decision, which is the honest version of what ":latest" does silently — and this
+  # repository has already been broken once by an action whose base image vanished.
+  secrets-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history. The default shallow clone fetches one commit, and scanning one commit
+          # while reporting "no leaks found" is exactly the false assurance this job is for.
+          fetch-depth: 0
+
+      # Same reasoning as the mutation job: prove the check can fail before trusting that it
+      # passed. A scanner pointed at the wrong path exits 0 and is indistinguishable from a clean
+      # repository, and that mount path is a real thing that breaks.
+      #
+      # The key is generated here, random, valid nowhere, and written outside the workspace so it
+      # cannot reach the scan below or a commit.
+      - name: Prove the scanner can fail
+        run: |
+          canary="$RUNNER_TEMP/canary"
+          mkdir -p "$canary"
+          printf 'ANTHROPIC_API_KEY=sk-ant-api03-%sAA\n' \
+            "$(head -c 300 /dev/urandom | base64 | tr -dc 'A-Za-z0-9_-' | head -c 93)" \
+            > "$canary/planted.env"
+
+          if docker run --rm -v "$canary:/scan" "$GITLEAKS_IMAGE" \
+               detect --source=/scan --no-git --redact --no-banner; then
+            echo "::error::gitleaks reported clean on a directory containing a planted key."
+            echo "::error::The scan below would report clean too, whatever this repository contains."
+            exit 1
+          fi
+          echo "Planted key was caught, so a clean result below means something."
+
+      - name: Scan the full history
+        run: |
+          docker run --rm -v "$PWD:/repo" "$GITLEAKS_IMAGE" \
+            detect --source=/repo --redact --verbose --no-banner

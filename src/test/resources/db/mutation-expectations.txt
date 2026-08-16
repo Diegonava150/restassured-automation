@@ -18,6 +18,14 @@ Resources endpoint - Creating a resource with negative stock is rejected
 Resources endpoint - Creating a resource with a negative price is rejected
 Resources endpoint - Creating a resource with a blank name is rejected
 ConcurrentWritersTest.duplicateInsertRaceHasExactlyOneWinner
+OpenApiContractTest.clientsSchemaAgreesWithTheSpec
+
+# That last one is proven for free. Dropping NOT NULL from clients.name to cover the 23502
+# scenario also removes "name" from the required list PostgREST derives for its spec, which is
+# exactly the nullability drift the contract test exists to catch. One weakening, two assertions
+# demonstrated. The resources half stays green because that table's weakening removes a CHECK,
+# and a CHECK does not appear in an OpenAPI document at all — a fair reminder that this test
+# covers nullability and shape, not validation rules.
 
 # ---------------------------------------------------------------------------------------------
 # Deliberately absent, and why. Two negative scenarios cannot be covered by this technique, and
