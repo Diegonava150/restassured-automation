@@ -57,8 +57,12 @@ return a number.
 
 ## What the suite covers
 
-**22 Cucumber scenarios plus 3 JUnit tests.** Every happy path has its negative counterpart — that pairing is the point, and
+**22 Cucumber scenarios plus 6 JUnit tests.** Every happy path has its negative counterpart — that pairing is the point, and
 the previous version of this suite had none of the second column.
+
+Nine of those scenarios assert that something is *rejected*, and a green tick reads the same
+whether the assertion held or never ran. Which of them have teeth is
+[established separately](#proving-the-negative-tests-can-fail), not assumed.
 
 ### `/clients` — [clients.feature](src/test/resources/features/clients.feature)
 
@@ -74,14 +78,17 @@ the previous version of this suite had none of the second column.
 | | Update into a duplicate email | `409` · `23505` |
 | Delete a client | Delete a row that does not exist | `204` — delete is idempotent |
 
-### Two things Gherkin is the wrong shape for
+### Three things Gherkin is the wrong shape for
 
 | Test | What it pins down |
 | --- | --- |
 | [`SchemaValidationHasTeethTest`](src/test/java/com/automation/api/SchemaValidationHasTeethTest.java) | That a violated schema **fails, naming the property**. Every other test asserts schemas *pass*, so none would notice if validation silently broke again — and it had been broken. Points a good response at a deliberately wrong schema and demands an `AssertionError` mentioning the missing field. |
 | [`ConcurrentWritersTest`](src/test/java/com/automation/api/ConcurrentWritersTest.java) | Two writers racing for the same unique email: exactly one gets `201`, the other `409`, and **exactly one row persists**. A `CyclicBarrier` releases both at once, because starting two threads and hoping usually means the first finishes before the second is sent. Not expressible in Gherkin, which describes ordered steps — the whole point here is that there is no order. |
 
-The old hosted mock could not have carried either of these: no unique index means no race to lose.
+| [`OpenApiContractTest`](src/test/java/com/automation/api/OpenApiContractTest.java) | That the **committed JSON schemas still describe the API the database generates**. PostgREST derives an OpenAPI document from the live schema — tables become paths, columns become properties, `NOT NULL` becomes `required` — so the repository states the same contract twice, once by hand and once from `init.sql`. This compares them. An *added* column was already caught by `additionalProperties: false`; a dropped `NOT NULL` was not, and stays invisible for as long as the seed data happens to fill the field in. |
+
+The old hosted mock could not have carried any of these: no unique index means no race to lose,
+and no schema means no spec to disagree with.
 
 ### `/resources` — [resources.feature](src/test/resources/features/resources.feature)
 
@@ -172,6 +179,39 @@ this case: started once on first touch, reaped at JVM exit.
 
 ---
 
+## Proving the negative tests can fail
+
+Nine scenarios assert that the API *rejects* something. All nine are green, and a green tick says
+nothing about whether the assertion held or simply never ran — that is the failure mode this
+repository keeps finding, and it had already found it once in `validateSchema`.
+
+So CI runs the whole suite a second time against
+[`init-weakened.sql`](src/test/resources/db/init-weakened.sql), a copy of the schema with the
+constraints those scenarios assert on taken out. Every one of them **must** go red. A green
+result there is the failure.
+
+The list of what must fail is
+[`mutation-expectations.txt`](src/test/resources/db/mutation-expectations.txt), one line per
+assertion claimed to have teeth, and the job checks each individually. It used to require only
+that the suite went red at all — which one surviving failure satisfied, while the rest could
+quietly stop being caught. Writing the list out is what showed the coverage was five of nine
+rather than nine of nine: `without a required field` and `a blank name is rejected` were both
+guarded by constraints the weakened copy still had.
+
+Two of the nine cannot be covered this way, and the file says so rather than rounding them in:
+malformed JSON is rejected by PostgREST before Postgres sees the request, and a non-numeric
+integer by type coercion. Neither is a constraint this schema declares, so there is nothing to
+remove. The current verdict appears in the Allure report's **Environment** panel, next to the
+results it qualifies.
+
+The same reasoning covers the secret scan. `Secret scan (gitleaks)` plants a synthetic key in a
+scratch directory and requires the scanner to catch it before scanning the repository, because a
+scanner pointed at a path that does not exist reports clean and looks identical to a clean
+repository. It reads the full history rather than the working tree: a key committed once and
+deleted later is still in the pack file and still has to be rotated.
+
+---
+
 ## Deliberately not covered
 
 - **Authentication and authorisation.** PostgREST supports JWT roles; this suite runs everything
@@ -186,8 +226,12 @@ this case: started once on first touch, reaped at JVM exit.
   `ApiUnderTest`, which its docker updater cannot read — it parses Dockerfiles and compose
   files, and this repository has neither. Adding a compose file purely to satisfy it would
   commit something nothing runs. Those two pins are bumped by hand.
-- **Contract testing against a published spec.** JSON schema validation checks response *shape*;
-  it is not a substitute for a consumer-driven contract, and does not claim to be.
+- **Consumer-driven contract testing.**
+  [`OpenApiContractTest`](src/test/java/com/automation/api/OpenApiContractTest.java) now checks
+  the committed schemas against the spec PostgREST generates, which catches drift between two
+  descriptions of this API. That is provider-side self-consistency, and it is a different claim
+  from a Pact-style contract: no real consumer's expectations are recorded anywhere here, so
+  nothing would notice a change that is internally consistent and still breaks a caller.
 - **The `resources` update scenarios do not assert on concurrency.** Nothing here tests what two
   simultaneous writers see. That needs a different harness.
 
@@ -197,7 +241,7 @@ this case: started once on first touch, reaped at JVM exit.
 
 This repository was four commits of a template. The rewrite is recorded honestly:
 
-**Verified by running it.** All 25 tests pass locally against Docker in ~11 s, and the same
+**Verified by running it.** All 28 tests pass locally against Docker in ~11 s, and the same
 command runs in CI. Schema validation was verified to *fail* by adding a required property the API
 does not return — it produced three failures naming the missing field, which is the check having
 teeth rather than being decoration.
