@@ -22,6 +22,12 @@
         <testcontainers.version>1.21.4</testcontainers.version>
         <postgresql.driver.version>42.7.13</postgresql.driver.version>
         <allure.version>2.35.4</allure.version>
+        <!-- The Allure *commandline* is versioned separately from the Java libraries and is
+             far ahead of them. Pointing reportVersion at allure.version asks Central for
+             allure-commandline:zip:2.35.4, which has never existed — the report generation
+             fails with "Cannot resolve allure commandline dependencies" while `mvn test`
+             stays perfectly green, so nothing notices until someone opens the report. -->
+        <allure.commandline.version>2.45.0</allure.commandline.version>
         <gson.version>2.13.2</gson.version>
         <log4j.version>2.25.2</log4j.version>
 
@@ -237,7 +243,7 @@
                 <artifactId>allure-maven</artifactId>
                 <version>${allure.maven.version}</version>
                 <configuration>
-                    <reportVersion>${allure.version}</reportVersion>
+                    <reportVersion>${allure.commandline.version}</reportVersion>
                     <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
                 </configuration>
             </plugin>
