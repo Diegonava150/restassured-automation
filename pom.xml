@@ -167,6 +167,15 @@
             <version>${allure.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- Attaches the actual HTTP exchange to each step. Without it an API report shows
+             which scenarios passed and nothing about what was sent or returned, which is the
+             only thing anyone opens an API report to find out. -->
+        <dependency>
+            <groupId>io.qameta.allure</groupId>
+            <artifactId>allure-rest-assured</artifactId>
+            <version>${allure.version}</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- ============================================================= Misc -->
         <dependency>

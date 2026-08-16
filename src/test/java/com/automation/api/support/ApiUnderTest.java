@@ -92,6 +92,15 @@ public final class ApiUnderTest {
 
     private ApiUnderTest() {}
 
+    /** Exposed so the Allure environment panel reports the images actually used. */
+    public static String postgresImage() {
+        return POSTGRES_IMAGE;
+    }
+
+    public static String postgrestImage() {
+        return POSTGREST_IMAGE;
+    }
+
     /**
      * The base URI to point RestAssured at, starting the stack on first call.
      *
