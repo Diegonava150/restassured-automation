@@ -53,10 +53,16 @@ updates:
     commit-message:
       prefix: "ci"
 
-  # And the API under test is two container images. They are pinned on purpose; this makes the
-  # pin a decision that gets revisited rather than one that quietly ages.
-  - package-ecosystem: docker
-    directory: /src/test/resources/db
-    schedule:
-      interval: monthly
-    labels: [dependencies, docker]
+  # No docker ecosystem block. There was one, pointed at src/test/resources/db, and it failed
+  # every run: Dependabot's docker updater parses Dockerfiles and compose files, and this
+  # repository has neither. The two image tags are Java string constants in ApiUnderTest —
+  #
+  #     private static final String POSTGRES_IMAGE  = "postgres:16-alpine";
+  #     private static final String POSTGREST_IMAGE = "postgrest/postgrest:v12.2.12";
+  #
+  # — which no dependency bot can see. Adding a compose file purely so one could would mean
+  # committing a file nothing runs, and the images drifting out of step with the Java the moment
+  # anyone edited either.
+  #
+  # So bumping those two is a manual decision. Recorded here rather than papered over, because a
+  # config block that errors on every run is worse than an acknowledged gap.

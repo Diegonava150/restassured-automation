@@ -181,6 +181,11 @@ this case: started once on first touch, reaped at JVM exit.
   would describe Docker, not the API.
 - **PostgREST's own feature surface** — embedded resources, RPC, full-text search, `Range`
   pagination. The suite covers the CRUD contract it defines, not everything the tool can do.
+- **Automated bumping of the two container images.** Dependabot covers Maven and GitHub
+  Actions here, but the Postgres and PostgREST tags are Java string constants in
+  `ApiUnderTest`, which its docker updater cannot read — it parses Dockerfiles and compose
+  files, and this repository has neither. Adding a compose file purely to satisfy it would
+  commit something nothing runs. Those two pins are bumped by hand.
 - **Contract testing against a published spec.** JSON schema validation checks response *shape*;
   it is not a substitute for a consumer-driven contract, and does not claim to be.
 - **The `resources` update scenarios do not assert on concurrency.** Nothing here tests what two
