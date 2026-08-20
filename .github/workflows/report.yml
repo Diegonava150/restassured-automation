@@ -61,23 +61,32 @@ jobs:
           run-id: ${{ github.event.workflow_run.id || github.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # With Pages served from Actions there is no gh-pages branch to read the previous
-      # history out of, so it is cached instead. restore-keys makes every run pick up the most
-      # recent cache rather than only an exact key match, which is what lets the trend survive.
-      - name: Restore previous history
-        uses: actions/cache/restore@v6
-        with:
-          path: allure-history
-          key: allure-history-${{ github.run_id }}
-          restore-keys: allure-history-
-
-      - name: Carry history forward
+      # History is read from the published report over HTTP, not from a cache.
+      #
+      # It was actions/cache, and that quietly loses the trend: GitHub evicts a cache after
+      # seven days without a read, so any week this repository goes untouched resets the graph
+      # and no step reports it. Not hypothetical — the trend here had already fallen to ten
+      # entries while the sibling mobile repository, which reads history the way this now does,
+      # still had twenty.
+      #
+      # The last published report *is* the previous state, and unlike a cache it cannot expire
+      # out from under the workflow.
+      - name: Restore history from the published report
         run: |
-          if [ -d allure-history ]; then
-            cp -r allure-history target/allure-results/history
-            echo "restored $(ls allure-history | wc -l) history file(s)"
+          site="https://${GITHUB_REPOSITORY%%/*}.github.io/${GITHUB_REPOSITORY#*/}"
+          mkdir -p target/allure-results/history
+          restored=0
+          for file in history.json history-trend.json categories-trend.json duration-trend.json retry-trend.json; do
+            if curl -fsSL --max-time 30 -o "target/allure-results/history/$file" "$site/history/$file"; then
+              restored=$((restored + 1))
+            else
+              rm -f "target/allure-results/history/$file"
+            fi
+          done
+          if [ "$restored" -eq 0 ]; then
+            echo "No previous history at $site — this will be the first report in the series."
           else
-            echo "no previous history — this is the first published report"
+            echo "Carried forward $restored history file(s) from $site."
           fi
 
       # The report shows nine scenarios named "... is rejected", all green, and a green tick
@@ -124,20 +133,6 @@ jobs:
       # target/site/allure-maven-plugin.
       - name: Generate the report
         run: ./mvnw -B allure:report
-
-      - name: Save history for the next run
-        if: always()
-        run: |
-          rm -rf allure-history
-          cp -r target/site/allure-maven-plugin/history allure-history 2>/dev/null \
-            || echo "report produced no history directory"
-
-      - name: Cache the history
-        if: always()
-        uses: actions/cache/save@v6
-        with:
-          path: allure-history
-          key: allure-history-${{ github.run_id }}
 
       - uses: actions/configure-pages@v6
 
