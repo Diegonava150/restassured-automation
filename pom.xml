@@ -15,7 +15,7 @@
         <cucumber.version>7.34.7</cucumber.version>
         <junit.version>6.1.3</junit.version>
         <rest.assured.version>6.0.1</rest.assured.version>
-        <lombok.version>1.18.46</lombok.version>
+        <lombok.version>1.18.48</lombok.version>
         <!-- 1.21.x, not 2.x. Testcontainers 2.0 reorganised its modules — there is no
              org.testcontainers:postgresql at 2.0.5 — and every piece of documentation
              for the singleton and JUnit 5 patterns targets the 1.21 API. -->
